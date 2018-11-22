@@ -2,16 +2,6 @@
 // This code is the property of Oregon State University Mountain Hydroclimatology Research Group
 // Please contact Dr. Anne Nolin for any inquiries: nolina@oregonstate.edu
 
-// Currently this code works for three watersheds:
-
-// Rio Elqui in Chile
-// Rio Aragon in Spain
-// John Day River in Oregon, USA
-
-// This JavaScript code is written to be executed in Google Earth Engine. For access to Google Earth Engine, the user must fill out the following form (This is a Google stipulation)
-//  https://earthengine.google.com/signup
-
-// Once you have access to GEE, follow these instructions.
 //
 // Operational Instruction:
 // Select Run to show input and default options.
@@ -54,14 +44,12 @@
 //                 Note: Plot area is automatically determined to be a rectangular area encompassing the 
 //                 watershed with 10km of buffer on all sides.
 //                 Can select projection with default projection EPSG:3857, which is used in many popular 
-//                 web mapping applications (Google/Bing/OpenStreetMap/etc). AKA EPSG:900913. 
+//                 web  applications (Google/Bing/OpenStreetMap/etc). AKA EPSG:900913. 
 //
 
 var DEM = ee.Image("USGS/SRTMGL1_003");
-//var StatesFT = ee.FeatureCollection("ft:17aT9Ud-YnGiXdXEJUyycH2ocUqreOeKGbzCkUw");
 var StatesFT = ee.FeatureCollection("ft:1OoBTpAqkASRRnJ_tsUOiswz06-0r2Nc9ncxQM68");
-//var snotel = ee.FeatureCollection('ft:1Bb-QDHARJ2UDi-Eghj92kJpUy43vaqT9fAcle8LW');
-var WaterShedsFC = ee.FeatureCollection('ft:17aiw8txepanXc18e5971WteiYALWoygiLZl7KZHG');
+var WaterShedsFC = ee.FeatureCollection('ft:1xqeARi7ndPeNZcI6yG7B_stFlQl9Mm8C61yw9-3P');
 var WaterShedsFC_List;
 
 ////////////////////////  COLOR PALETTES  ////////////////////////////////
@@ -173,7 +161,7 @@ scf.setMapCenter = function() {
       }
       centroid = roi.centroid();
       //print(centroid);
-      
+
       Map.addLayer(displaySCF.clip(state), {'palette':palette_snow}, 'SCF w/Cloud', 1);
           //Map.addLayer(displaySCF_nocloud.clip(state), {'palette':palette_snow}, 'SCF noCloud', 0);
           //Map.addLayer(displaySCF.clip(state), {'palette':palette_snow, min: 0}, 'SCF QA', 0);
@@ -505,7 +493,9 @@ scf.filters.panel = ui.Panel({
                 {label: 'All'     , value: 'All'},
                 {label: 'Aragon'  , value: 'Aragon'  },
                 {label: 'JohnDay' , value: 'JohnDay'},
-                {label: 'LaLaguna', value: 'LaLaguna'}
+                {label: 'LaLaguna', value: 'LaLaguna'},
+                {label: 'ring10k' , value: 'ring10k'},
+                {label: 'ring30k' , value: 'ring30k'},
                ],
         placeholder: 'Select Watershed ROI...',
         onChange: function(value) {
@@ -592,13 +582,20 @@ scf.getSCF = function(start, end){
         return img.expression("(BAND==200)",{BAND:img.select('Snow_Cover_Daily_Tile')})})
       .toList(40);
       
+    var MODIS_cloud_list1 = ee.ImageCollection("MOD10A1")
+      .filterDate(start1,end1)
+      .filterBounds(WaterShedsFC)
+      .map(function(img) {
+        return img.expression("(BAND==50)",{BAND:img.select('Snow_Cover_Daily_Tile')})})
+      .toList(40);
+    /***  
     var MODIS_nosnow_list1 = ee.ImageCollection("MOD10A1")
       .filterDate(start1,end1)
       .filterBounds(WaterShedsFC)
       .map(function(img) {
         return img.expression("(BAND==25)",{BAND:img.select('Snow_Cover_Daily_Tile')})})
       .toList(40);
-    
+    ***/
     var MODIS_cloud_list = ee.ImageCollection("MOD10A1")
       .filterDate(start,end)
       .filterBounds(WaterShedsFC)
@@ -612,14 +609,14 @@ scf.getSCF = function(start, end){
       .map(function(img) {
         return img.expression("(BAND==200)",{BAND:img.select('Snow_Cover_Daily_Tile')})})
       .toList(40);
-      
+    /*** 
     var MODIS_snow_nosnow_list = ee.ImageCollection("MOD10A1")
       .filterDate(start,end)
       .filterBounds(WaterShedsFC)
       .map(function(img) {
         return img.expression("(BAND==200||BAND==25)",{BAND:img.select('Snow_Cover_Daily_Tile')})})
       .toList(40);
-      
+    ***/  
     //var MODIS_scfqa_list = ee.ImageCollection("MOD10A1")
       // Filter by the desired date range (defined above).
       //.filterDate(start,end)
@@ -637,13 +634,15 @@ scf.getSCF = function(start, end){
       //MODIS_scfqa = MODIS_scfqa.add(ee.Image(MODIS_scfqa_list.get(i)).unmask());
     //}
     //MODIS_scfqa = ee.Image(1).subtract(MODIS_scfqa.divide(ee.Image(ndays)));
-    
-    var MODIS_snow_end = ee.Image(0);
-    var ndays1 = MODIS_snow_list1.length().getInfo();    
+
+    //var MODIS_snow_end = ee.Image(0);
+    var ndays1 = MODIS_snow_list1.length().getInfo();
+    /***
     for (var i = ndays1 - 1; i >= 0; i--) {
       MODIS_snow_end = MODIS_snow_end.where(ee.Image(MODIS_snow_list1.get(i)).unmask().eq(1), 1);
       MODIS_snow_end = MODIS_snow_end.where(ee.Image(MODIS_nosnow_list1.get(i)).unmask().eq(1), 0);
     }
+    ***/
     //This server loop doesn't work yet
     //var serverLoop = ee.List.sequence(ndays1 - 1, 0, -1);
     //serverLoop = serverLoop.map(function(n) {
@@ -653,6 +652,7 @@ scf.getSCF = function(start, end){
     //})
 
     // Retrieve initial cloud image
+    /***
     var MODIS_snowcloud_days = ee.Image(MODIS_cloud_list.get(0)).unmask();
     
     // Loop from start+1 to end on snowcloud_days.
@@ -667,7 +667,19 @@ scf.getSCF = function(start, end){
     }
     MODIS_incsnow = MODIS_snowcloud_days.multiply(MODIS_snow_end);
     snow = snow.add(MODIS_incsnow);
-    
+    ***/
+    var count_ena = ee.Image(0);
+    var i;
+    for(i=ndays1-1; i>=0; i--) {
+      count_ena = count_ena.and(ee.Image(MODIS_cloud_list1.get(i)).unmask()).or(ee.Image(MODIS_snow_list1.get(i)).unmask());
+    }
+
+    for(i=ndays-1; i>0; i--) {
+      snow = snow.add((ee.Image(MODIS_cloud_list.get(i)).unmask()).multiply(count_ena));
+      count_ena = (ee.Image(MODIS_cloud_list.get(i)).unmask()).and(count_ena);
+      count_ena = count_ena.or((ee.Image(MODIS_snow_list.get(i)).unmask()).and(ee.Image(MODIS_cloud_list.get(i-1)).unmask()));
+    }
+    snow = snow.add((ee.Image(MODIS_cloud_list.get(0)).unmask()).and(count_ena));
     ///////////////////////////  IMAGE CALCULATION  ////////////////////////////////
     // This function allows you to divide the values from one image by the values 
     // in another image. This is the simplicity of Snow Cover Frequency algorithm.
